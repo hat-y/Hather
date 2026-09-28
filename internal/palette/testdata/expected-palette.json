@@ -1,0 +1,16 @@
+{
+  "_note": "Pinned native v1 palette roles and ordered terminal colors for fixture.jpg/png/webp; each artifact retains its own SHA-256.",
+  "engine_version": "v1",
+  "source_artifact_sha256": "fixture-dependent",
+  "roles": {
+    "background": "#202020",
+    "foreground": "#E0E020",
+    "muted": "#E02020",
+    "accent": "#E020E0"
+  },
+  "ordered_colors_16": [
+    "#202020", "#E020E0", "#20E0E0", "#E0E020", "#E02020", "#202020", "#E020E0", "#20E0E0",
+    "#E0E020", "#E02020", "#202020", "#E020E0", "#20E0E0", "#E0E020", "#E02020", "#202020"
+  ],
+  "diagnostics": []
+}

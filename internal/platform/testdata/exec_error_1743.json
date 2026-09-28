@@ -1,0 +1,10 @@
+{
+  "name": "automation_denial_1743",
+  "command": ["/usr/bin/osascript", "-e", "tell application \"System Events\" to set picture of every desktop to POSIX file \"/Users/me/Pictures/wall.jpg\""],
+  "exit_code": 1,
+  "stdout": "",
+  "stderr": "execution error: Not authorised to send Apple events to System Events. (-1743)",
+  "classification": "permission",
+  "remediation": "System Settings → Privacy & Security → Automation → allow the launching app to control System Events",
+  "note": "Classification must key on the -1743 code, not the human-readable text: osascript messages are localized (this host reports in Spanish)."
+}

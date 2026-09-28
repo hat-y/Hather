@@ -1,0 +1,14 @@
+{
+  // Sample VS Code settings.json (JSONC): comments and trailing commas are legal.
+  // Hather may only merge its owned keys under the two customization sections below.
+  "editor.fontSize": 14,
+  "workbench.colorCustomizations": {
+    "editor.background": "#1d222c",
+    "editor.foreground": "#c8d3f5",
+    "editor.lineHighlightBackground": "#2c3442",
+  },
+  "editor.tokenColorCustomizations": {
+    "comments": "#8d94a2",
+  },
+  "window.zoomLevel": 0,
+}

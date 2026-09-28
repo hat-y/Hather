@@ -1,0 +1,35 @@
+# Personalized herdr config sample (synthetic; modeled on herdr 0.8.2 --default-config).
+# Hather owns only [theme] and [theme.custom]; all other sections must survive unchanged.
+
+[theme]
+name = "one-dark"
+# auto_switch = false
+# dark_name = "catppuccin"
+# light_name = "catppuccin-latte"
+
+[theme.custom]
+panel_bg = "#181825"
+accent = "#f5c2e7"
+red = "#ff6188"
+green = "#a6e3a1"
+blue = "#89b4fa"
+yellow = "#f9e2af"
+
+[terminal]
+default_shell = "/bin/zsh"
+shell_mode = "auto"
+
+[keys]
+prefix = "ctrl+a"
+reload_config = "prefix+shift+r"
+
+[[keys.command]]
+key = "prefix+alt+g"
+type = "popup"
+command = "lazygit"
+width = "80%"
+height = "80%"
+
+[server]
+headless_cols = 140
+headless_rows = 48

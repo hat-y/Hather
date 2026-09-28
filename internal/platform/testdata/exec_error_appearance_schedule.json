@@ -1,0 +1,9 @@
+{
+  "name": "appearance_schedule_detected",
+  "command": ["/usr/bin/defaults", "read", "-g", "AppleInterfaceStyleSwitchesAutomatically"],
+  "exit_code": 0,
+  "stdout": "1",
+  "stderr": "",
+  "classification": "conflict",
+  "note": "Auto light/dark scheduling is enabled, so an explicit appearance change must refuse (or require an explicit override) rather than silently disabling scheduling."
+}

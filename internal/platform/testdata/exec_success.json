@@ -1,0 +1,8 @@
+{
+  "name": "wallpaper_apply_success",
+  "command": ["/usr/bin/osascript", "-e", "tell application \"System Events\" to set picture of every desktop to POSIX file \"/Users/me/Pictures/wall.jpg\""],
+  "exit_code": 0,
+  "stdout": "",
+  "stderr": "",
+  "classification": "applied"
+}

@@ -1,0 +1,7 @@
+{
+  "name": "path_escaping_vector",
+  "input_path": "/Users/me/Pictures/My Wall (final) \"v2\" \\ $(HOME).png",
+  "expected_applescript_literal": "/Users/me/Pictures/My Wall (final) \\\"v2\\\" \\\\ $(HOME).png",
+  "shell": false,
+  "note": "Paths go inside an AppleScript string literal (POSIX file \"...\"). Escape backslash (\\ -> \\\\) and double quote (\" -> \\\") only; never pass the path through a shell. exec.Command with an argument array, no sh -c, so $() and spaces are inert."
+}

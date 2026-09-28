@@ -1,0 +1,4 @@
+# Local agent runtime state
+.atl/
+.pi/
+.gentle-ai-instance

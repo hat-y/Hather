@@ -1,0 +1,40 @@
+# OpenSpec / SDD project configuration — Hather
+project: Hather
+version: 1
+artifact_store: openspec
+execution: auto
+delivery_strategy: ask-on-risk
+review_budget_lines: 400
+strict_tdd: true
+test_command: go test ./...
+description: >-
+  Hather is a fresh open-source macOS application for deriving and applying
+  cohesive themes from wallpaper sources. Its MVP surface is a TUI and CLI,
+  with Homebrew as the first distribution channel.
+language: go
+runtime: macOS
+stack:
+  - Go
+  - TUI
+  - CLI
+  - Homebrew
+  - open source
+target_platforms:
+  - macOS
+integrations:
+  wallpaper_sources:
+    - Wallhaven
+  theme_adapters:
+    - macOS appearance and wallpaper
+    - Ghostty
+    - herdr
+    - Neovim
+    - VS Code
+    - other adapters added in later phases
+sdd:
+  changes_dir: openspec/changes
+  specs_dir: openspec/specs
+  artifact_language: en
+rules:
+  phase_gated: true
+  implementation_scope: minimal

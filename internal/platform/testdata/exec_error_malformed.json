@@ -1,0 +1,9 @@
+{
+  "name": "malformed_platform_output",
+  "command": ["/usr/bin/osascript", "-e", "tell application \"System Events\" to get name of every desktop"],
+  "exit_code": 0,
+  "stdout": "desktop 1, desktop 2 <unparseable>",
+  "stderr": "",
+  "classification": "failed",
+  "note": "Exit 0 but stdout is not a parseable desktop list; the adapter must classify this as failed, not applied."
+}

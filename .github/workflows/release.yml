@@ -1,0 +1,129 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
+        with:
+          go-version-file: go.mod
+
+      - name: Validate release tag
+        id: version
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          if [[ ! "$TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-(([0-9A-Za-z-]+)(\.[0-9A-Za-z-]+)*))?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$ ]]; then
+            echo "::error::Tag must be vSemVer (for example, v1.2.3)."
+            exit 1
+          fi
+          IFS=. read -ra identifiers <<< "${BASH_REMATCH[5]}"
+          for id in "${identifiers[@]}"; do
+            if [[ "$id" =~ ^[0-9]+$ && "$id" != "0" && "$id" == 0* ]]; then
+              echo "::error::Numeric prerelease identifiers cannot have leading zeroes."
+              exit 1
+            fi
+          done
+          printf 'version=%s\n' "${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Test
+        run: go test ./...
+
+      - name: Build
+        run: go build ./...
+
+      - name: Vendor dependencies
+        run: go mod vendor
+
+      - name: Package source and vendor
+        id: package
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          package="hather-${VERSION}"
+          archive="${package}.tar.gz"
+          staging="$RUNNER_TEMP/package"
+          mkdir -p "$staging/$package"
+          git archive --format=tar --prefix="$package/" HEAD | tar -xf - -C "$staging"
+          mkdir -p "$staging/$package/vendor"
+          cp -a vendor/. "$staging/$package/vendor/"
+          tar -C "$staging" -czf "$archive" "$package"
+          sha256sum "$archive" > "${archive}.sha256"
+          printf 'archive=%s\n' "$archive" >> "$GITHUB_OUTPUT"
+          printf 'sha256=%s\n' "$(sha256sum "$archive" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          ARCHIVE: ${{ steps.package.outputs.archive }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$ARCHIVE" "${ARCHIVE}.sha256" --clobber
+          else
+            gh release create "$TAG" "$ARCHIVE" "${ARCHIVE}.sha256" --title "$TAG" --generate-notes
+          fi
+
+      - name: Checkout Homebrew tap
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: hat-y/homebrew-hather
+          token: ${{ secrets.TAP_GITHUB_TOKEN }}
+          path: homebrew-hather
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Render Homebrew formula
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          SHA256: ${{ steps.package.outputs.sha256 }}
+          TARBALL_URL: https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/${{ steps.package.outputs.archive }}
+        working-directory: homebrew-hather
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          template = Path("Formula/hather.rb.in").read_text()
+          replacements = {
+              "{{VERSION}}": os.environ["VERSION"],
+              "{{SHA256}}": os.environ["SHA256"],
+              "{{TARBALL_URL}}": os.environ["TARBALL_URL"],
+          }
+          for placeholder, value in replacements.items():
+              template = template.replace(placeholder, value)
+          if "{{" in template or "}}" in template:
+              raise SystemExit("unrendered formula placeholder")
+          Path("Formula/hather.rb").write_text(template)
+          PY
+
+      - name: Commit and push Homebrew formula
+        env:
+          TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+        working-directory: homebrew-hather
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Formula/hather.rb
+          git diff --cached --quiet || git commit -m "hather ${VERSION}"
+          git config --local credential.helper '!f() { echo "username=x-access-token"; echo "password=${TAP_GITHUB_TOKEN}"; }; f'
+          git push origin HEAD:main
