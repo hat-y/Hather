@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/charmbracelet/lipgloss"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/hat-y/Hather/internal/app"
 	"github.com/hat-y/Hather/internal/model"
@@ -328,6 +330,55 @@ func TestViewHintsAndBoundedResults(t *testing.T) {
 	m.result.Status = model.OperationPartialFailure
 	if !strings.Contains(m.View(), "targets are independent") || !strings.Contains(m.View(), "unavailable targets were not configured") {
 		t.Fatalf("partial: %q", m.View())
+	}
+}
+
+func visibleTail(view string) string {
+	lines := strings.Split(view, "\n")
+	if len(lines) > 20 {
+		lines = lines[len(lines)-20:]
+	}
+	return strings.Join(lines, "\n")
+}
+
+func TestPreviewFeedbackVisibleBeforeResults(t *testing.T) {
+	wall := model.Wallpaper{ID: "w1", Title: "Forest"}
+	m := New(&fakeCore{preview: model.OperationResult{Status: model.OperationComplete, Palette: model.Palette{Background: "#010101", Foreground: "#fefefe", Muted: "#999999", Accent: "#abcdef"}}})
+	m.Input.Blur()
+	for i := 0; i < 24; i++ {
+		m.Results = append(m.Results, model.Wallpaper{ID: fmt.Sprint(i), Title: fmt.Sprintf("Result %02d", i)})
+	}
+	m.Results[0] = wall
+	m.Selected = wall
+	m, cmd := update(m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("p")})
+	if view := visibleTail(m.View()); !strings.Contains(view, "Previewing selected wallpaper...") || !strings.HasSuffix(view, "Previewing selected wallpaper...") {
+		t.Fatalf("progress not above adapters: %q", view)
+	}
+	m = run(t, m, cmd)
+	view := m.View()
+	view = visibleTail(view)
+	for _, line := range strings.Split(view, "\n") {
+		if lipgloss.Width(line) > 100 {
+			t.Fatalf("preview exceeds 100 columns: %q", line)
+		}
+	}
+	if strings.Contains(view, "Previewing") || !strings.Contains(view, "Preview ready") || !strings.Contains(strings.Join(strings.Split(view, "\n")[len(strings.Split(view, "\n"))-3:], "\n"), "Preview ready") {
+		t.Fatalf("preview not above adapters: %q", view)
+	}
+	for _, want := range []string{"Background: #010101", "Foreground: #fefefe", "Muted: #999999", "Accent: #abcdef"} {
+		if !strings.Contains(view, want) {
+			t.Fatalf("missing visible swatch or hex %q: %q", want, view)
+		}
+	}
+	m, _ = update(m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("p")})
+	m, _ = update(m, previewResult{result: model.OperationResult{Status: model.OperationPrerequisiteFailure}, wallpaper: wall})
+	if strings.Contains(m.View(), "Previewing") {
+		t.Fatal("error retained progress")
+	}
+	m, _ = update(m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("p")})
+	m, _ = update(m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
+	if strings.Contains(m.View(), "Previewing") {
+		t.Fatal("selection retained progress")
 	}
 }
 

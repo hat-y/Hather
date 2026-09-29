@@ -26,11 +26,11 @@ type Model struct {
 	Selected     model.Wallpaper
 	Adapters     map[string]bool
 
-	local, applying bool
-	cursor          int
-	message         string
-	result          model.OperationResult
-	previewed       model.Wallpaper
+	local, applying, previewing bool
+	cursor                      int
+	message                     string
+	result                      model.OperationResult
+	previewed                   model.Wallpaper
 }
 
 type searchResult struct {
@@ -55,7 +55,7 @@ func (m Model) Init() tea.Cmd { return nil }
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case searchResult:
-		m.Results, m.Selected, m.result, m.previewed = nil, model.Wallpaper{}, model.OperationResult{}, model.Wallpaper{}
+		m.Results, m.Selected, m.result, m.previewed, m.previewing = nil, model.Wallpaper{}, model.OperationResult{}, model.Wallpaper{}, false
 		if msg.err != nil {
 			m.message = "Error: " + msg.err.Error()
 			return m, nil
@@ -68,7 +68,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.cursor, m.Selected, m.message = 0, msg.walls[0], ""
 		return m, nil
 	case previewResult:
+		if !sameWallpaper(msg.wallpaper, m.Selected) {
+			return m, nil
+		}
+		m.previewing = false
 		m.result, m.message = msg.result, ""
+		m.previewed = model.Wallpaper{}
 		if msg.result.Status == model.OperationComplete {
 			m.previewed = msg.wallpaper
 		}
@@ -89,8 +94,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if m.local {
 					path := m.Input.Value()
 					m.Selected, m.result, m.previewed = model.Wallpaper{SourceKind: "local", ID: path, ImageURL: path, Title: path}, model.OperationResult{}, model.Wallpaper{}
+					m.previewing = path != ""
 					return m, m.preview()
 				}
+				m.previewing, m.result, m.previewed = false, model.OperationResult{}, model.Wallpaper{}
 				return m, m.search()
 			}
 			m.Input, _ = m.Input.Update(msg)
@@ -106,11 +113,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					delta = -1
 				}
 				m.cursor = (m.cursor + delta + len(m.Results)) % len(m.Results)
-				m.Selected, m.result, m.previewed = m.Results[m.cursor], model.OperationResult{}, model.Wallpaper{}
+				m.Selected, m.result, m.previewed, m.previewing = m.Results[m.cursor], model.OperationResult{}, model.Wallpaper{}, false
 			}
 			return m, nil
 		case "l", "s":
-			m.local, m.message = string(msg.Runes) == "l", ""
+			m.local, m.message, m.previewing = string(msg.Runes) == "l", "", false
 			m.Input.SetValue("")
 			if m.local {
 				m.Input.Placeholder = "Local image path"
@@ -123,6 +130,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.message = "Select a wallpaper before previewing."
 				return m, nil
 			}
+			m.previewing, m.message = true, ""
 			return m, m.preview()
 		case "1", "2", "3", "4", "5":
 			ids := []string{"macos", "ghostty", "herdr", "neovim", "vscode"}
@@ -253,18 +261,6 @@ func (m Model) View() string {
 			}
 		}
 	}
-	if m.applying {
-		lines = append(lines, "Applying...")
-	}
-	if p := m.result.Palette; p.Accent != "" {
-		lines = append(lines, "Palette preview: "+p.Accent, "Background: "+p.Background, "Foreground: "+p.Foreground, "Muted: "+p.Muted, "Accent: "+p.Accent)
-		if len(p.Diagnostics) > 0 {
-			lines = append(lines, "Palette diagnostics: "+strings.Join(p.Diagnostics, "; "))
-		}
-	}
-	if m.result.Status != "" {
-		lines = append(lines, "Status: "+string(m.result.Status))
-	}
 	if m.result.Status == model.OperationPartialFailure {
 		lines = append(lines, "Partial failure: targets are independent; unavailable targets were not configured.")
 	}
@@ -290,6 +286,28 @@ func (m Model) View() string {
 		}
 	}
 	lines = append(lines, m.result.Diagnostics...)
+	if p := m.result.Palette; p.Accent != "" {
+		colors := make([]string, 0, 4)
+		for _, color := range []struct{ label, hex string }{{"Background", p.Background}, {"Foreground", p.Foreground}, {"Muted", p.Muted}, {"Accent", p.Accent}} {
+			colors = append(colors, color.label+": "+color.hex+" "+lipgloss.NewStyle().Background(lipgloss.Color(color.hex)).Render("  "))
+		}
+		lines = append(lines, "Palette preview: "+p.Accent+"  "+strings.Join(colors[:2], "  "), strings.Join(colors[2:], "  "))
+		if len(p.Diagnostics) > 0 {
+			lines = append(lines, "Palette diagnostics: "+strings.Join(p.Diagnostics, "; "))
+		}
+	}
+	if m.result.Status != "" {
+		lines = append(lines, "Status: "+string(m.result.Status))
+	}
+	if m.result.Status == model.OperationComplete && sameWallpaper(m.previewed, m.Selected) {
+		lines = append(lines, "Preview ready")
+	}
+	if m.previewing {
+		lines = append(lines, "Previewing selected wallpaper...")
+	}
+	if m.applying {
+		lines = append(lines, "Applying...")
+	}
 	if m.message != "" {
 		lines = append(lines, m.message)
 	}
