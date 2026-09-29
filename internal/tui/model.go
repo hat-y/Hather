@@ -195,7 +195,11 @@ func (m Model) selectedAdapters() []string {
 }
 
 func (m Model) View() string {
-	lines := []string{lipgloss.NewStyle().Bold(true).Render("Hather"), m.Input.View(), "s search · l local path · p preview · 1-5 adapters · a apply · q quit"}
+	hint := "s search · l local path · j/k navigate · p preview · 1-5 adapters · a apply · q quit"
+	if m.Input.Focused() {
+		hint = "type query/path · Enter submits · Ctrl+C quits"
+	}
+	lines := []string{lipgloss.NewStyle().Bold(true).Render("Hather"), m.Input.View(), hint}
 	for i, id := range []string{"macos", "ghostty", "herdr", "neovim", "vscode"} {
 		state := "unselected"
 		if m.Adapters[id] {
@@ -220,10 +224,31 @@ func (m Model) View() string {
 			}
 		}
 	}
-	for _, wall := range m.Results {
-		lines = append(lines, wall.Title)
+	if len(m.Results) > 0 {
+		lines = append(lines, fmt.Sprintf("Results: %d/%d", m.cursor+1, len(m.Results)))
+		start := m.cursor - 2
+		if start < 0 {
+			start = 0
+		}
+		if start > len(m.Results)-5 {
+			start = len(m.Results) - 5
+		}
+		if start < 0 {
+			start = 0
+		}
+		end := start + 5
+		if end > len(m.Results) {
+			end = len(m.Results)
+		}
+		for i := start; i < end; i++ {
+			marker := "  "
+			if i == m.cursor {
+				marker = "> "
+			}
+			lines = append(lines, marker+m.Results[i].Title)
+		}
 		for _, key := range []string{"resolution", "category", "purity"} {
-			if value := wall.Metadata[key]; value != "" {
+			if value := m.Selected.Metadata[key]; value != "" {
 				lines = append(lines, key+": "+value)
 			}
 		}
@@ -241,7 +266,7 @@ func (m Model) View() string {
 		lines = append(lines, "Status: "+string(m.result.Status))
 	}
 	if m.result.Status == model.OperationPartialFailure {
-		lines = append(lines, "Partial failure")
+		lines = append(lines, "Partial failure: targets are independent; unavailable targets were not configured.")
 	}
 	for _, result := range m.result.AdapterResults {
 		lines = append(lines, result.AdapterID+": "+string(result.Status))

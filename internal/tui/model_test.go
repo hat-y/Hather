@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -307,6 +308,26 @@ func TestChangesClearStaleResultsAndApplyIsSingleFlight(t *testing.T) {
 	m = run(t, m, cmd)
 	if core.applies != 1 {
 		t.Fatalf("apply calls = %d", core.applies)
+	}
+}
+
+func TestViewHintsAndBoundedResults(t *testing.T) {
+	m := New(&fakeCore{})
+	if view := m.View(); !strings.Contains(view, "type query/path · Enter submits · Ctrl+C quits") || strings.Contains(view, "1-5 adapters") {
+		t.Fatalf("focused hint: %q", view)
+	}
+	m.Input.Blur()
+	for i := 0; i < 24; i++ {
+		m.Results = append(m.Results, model.Wallpaper{ID: fmt.Sprint(i), Title: fmt.Sprintf("Result %02d", i), Metadata: map[string]string{"resolution": "large"}})
+	}
+	m.Selected, m.cursor = m.Results[12], 12
+	view := m.View()
+	if !strings.Contains(view, "1-5 adapters") || !strings.Contains(view, "13/24") || !strings.Contains(view, "> Result 12") || strings.Contains(view, "Result 00") || strings.Contains(view, "Result 23") || strings.Count(view, "Result ") > 6 || strings.Count(view, "resolution: large") != 1 {
+		t.Fatalf("window: %q", view)
+	}
+	m.result.Status = model.OperationPartialFailure
+	if !strings.Contains(m.View(), "targets are independent") || !strings.Contains(m.View(), "unavailable targets were not configured") {
+		t.Fatalf("partial: %q", m.View())
 	}
 }
 
